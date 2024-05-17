@@ -79,9 +79,13 @@ impl Chunk {
     }
 }
 
+const STACK_MAX: usize = 256;
+
 struct VM<'a> {
     chunk: &'a Chunk,
     ip: usize,
+    stack: [Value; 256],
+    stack_top: usize,
 }
 
 impl<'a> VM<'a> {
@@ -89,6 +93,8 @@ impl<'a> VM<'a> {
         VM {
             chunk,
             ip: 0,
+            stack: [0.0; STACK_MAX],
+            stack_top: 0,
         }
     }
 
@@ -101,6 +107,16 @@ impl<'a> VM<'a> {
     fn read_constant(&mut self) -> Value {
         let code = self.read_byte() as usize;
         self.chunk.constants[code]
+    }
+
+    fn push_value(&mut self, value: Value) {
+        self.stack[self.stack_top] = value;
+        self.stack_top += 1;
+    }
+
+    fn pop_value(&mut self) -> Value {
+        self.stack_top -= 1;
+        self.stack[self.stack_top]
     }
 }
 
