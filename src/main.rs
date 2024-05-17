@@ -155,7 +155,7 @@ fn run(vm: &mut VM) -> InterpretResult {
     }
 }
 
-fn main() {
+fn main() -> InterpretResult {
     let mut chunk = Chunk::new();
 
     let constant = chunk.add_constant(1.2f64);
@@ -163,5 +163,5 @@ fn main() {
     chunk.write(constant as u8, 123);
 
     chunk.write(OpCode::Return as u8, 123);
-    interpret(&chunk);
+    interpret(&chunk)
 }
