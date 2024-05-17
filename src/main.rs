@@ -24,6 +24,7 @@ impl TryFrom<u8> for OpCode {
 
 struct Chunk {
     code: Vec<u8>,
+    lines: Vec<u32>,
     constants: Vec<Value>,
 }
 
@@ -31,12 +32,14 @@ impl Chunk {
     fn new() -> Self {
         Chunk {
             code: Vec::new(),
+            lines: Vec::new(),
             constants: Vec::new(),
         }
     }
 
-    fn write(&mut self, byte: u8) {
+    fn write(&mut self, byte: u8, line: u32) {
         self.code.push(byte);
+        self.lines.push(line);
     }
 
     fn add_constant(&mut self, value: Value) -> usize{
@@ -55,6 +58,13 @@ impl Chunk {
 
     fn disassemble_instruction(&self, offset: usize) -> usize {
         print!("{:04} ", offset);
+
+
+        if offset > 0 && self.lines[offset] == self.lines[offset - 1] {
+            print!("   | ");
+        } else {
+            print!("{:4} ", self.lines[offset]);
+        }
 
         let instruction = self.code[offset];
         let op_code = OpCode::try_from(instruction).unwrap();
@@ -90,9 +100,9 @@ fn main() {
     let mut chunk = Chunk::new();
 
     let constant = chunk.add_constant(1.2f64);
-    chunk.write(OpCode::Constant as u8);
-    chunk.write(constant as u8);
+    chunk.write(OpCode::Constant as u8, 123);
+    chunk.write(constant as u8, 123);
 
-    chunk.write(OpCode::Return as u8);
+    chunk.write(OpCode::Return as u8, 123);
     chunk.disassemble("test chunk");
 }
