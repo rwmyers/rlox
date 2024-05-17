@@ -79,6 +79,31 @@ impl Chunk {
     }
 }
 
+struct VM<'a> {
+    chunk: &'a Chunk,
+    ip: usize,
+}
+
+impl<'a> VM<'a> {
+    fn new(chunk: &'a Chunk) -> Self {
+        VM {
+            chunk,
+            ip: 0,
+        }
+    }
+
+    fn read_byte(&mut self) -> u8 {
+        let code = self.chunk.code[self.ip];
+        self.ip += 1;
+        code
+    }
+
+    fn read_constant(&mut self) -> Value {
+        let code = self.read_byte() as usize;
+        self.chunk.constants[code]
+    }
+}
+
 fn simple_instruction(name: &str, offset: usize) -> usize {
     print!("{}\n", name);
     offset + 1
@@ -96,6 +121,40 @@ fn print_value(value: &Value) {
     print!("{:.6}", value);
 }
 
+#[derive(Debug)]
+enum InterpretError {
+    CompileError,
+    RuntimeError,
+}
+
+type InterpretResult = Result<(), InterpretError>;
+
+fn interpret(chunk: &Chunk) -> InterpretResult {
+    let mut vm = VM::new(chunk);
+    run(&mut vm)
+}
+
+fn run(vm: &mut VM) -> InterpretResult {
+    loop {
+        #[cfg(feature = "debug_trace_execution")]
+        vm.chunk.disassemble_instruction(vm.ip);
+        let instruction = vm.read_byte();
+        let op_code = OpCode::try_from(instruction);
+        match op_code {
+            Ok(OpCode::Constant) => {
+                let constant = vm.read_constant();
+                print_value(&constant);
+                print!("\n");
+            }
+            Ok(OpCode::Return) => {
+                return Ok(())
+            }
+            _ => continue
+        }
+
+    }
+}
+
 fn main() {
     let mut chunk = Chunk::new();
 
@@ -104,5 +163,5 @@ fn main() {
     chunk.write(constant as u8, 123);
 
     chunk.write(OpCode::Return as u8, 123);
-    chunk.disassemble("test chunk");
+    interpret(&chunk);
 }
