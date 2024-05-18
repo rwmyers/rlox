@@ -177,7 +177,7 @@ fn run(vm: &mut VM) -> InterpretResult {
                 print!("\n");
                 return Ok(())
             }
-            _ => continue
+            _ => panic!("Instruction {instruction} not recognized!")
         }
 
     }
