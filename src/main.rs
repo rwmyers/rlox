@@ -9,9 +9,13 @@ enum_from_primitive! {
 #[repr(u8)]
 /// Operation code.
 enum OpCode {
-    Constant = 0,
-    Negate = 1,
-    Return = 2,
+    Constant,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Negate,
+    Return,
 }
 }
 
@@ -63,15 +67,13 @@ impl Chunk {
         let instruction = self.code[offset];
         let op_code = OpCode::from_u8(instruction).unwrap();
         match op_code {
-            OpCode::Constant => {
-                constant_instruction("OP_CONSTANT", &self, offset)
-            }
-            OpCode::Negate => {
-                simple_instruction("OP_NEGATE", offset)
-            }
-            OpCode::Return => {
-                simple_instruction("OP_RETURN", offset)
-            }
+            OpCode::Constant => constant_instruction("OP_CONSTANT", &self, offset),
+            OpCode::Add => simple_instruction("OP_ADD", offset),
+            OpCode::Subtract => simple_instruction("OP_SUBTRACT", offset),
+            OpCode::Multiply => simple_instruction("OP_MULTPLY", offset),
+            OpCode::Divide => simple_instruction("OP_DIVIDE", offset),
+            OpCode::Negate => simple_instruction("OP_NEGATE", offset),
+            OpCode::Return => simple_instruction("OP_RETURN", offset),
         }
     }
 }
@@ -114,6 +116,12 @@ impl<'a> VM<'a> {
     fn pop_value(&mut self) -> Value {
         self.stack_top -= 1;
         self.stack[self.stack_top]
+    }
+
+    fn binary_op(&mut self, op: impl Fn(f64, f64) -> f64) {
+        let a = self.pop_value();
+        let b = self.pop_value();
+        self.push_value(op(a, b));
     }
 }
 
@@ -168,6 +176,10 @@ fn run(vm: &mut VM) -> InterpretResult<'static> {
                 let constant = vm.read_constant();
                 vm.push_value(constant);
             }
+            Some(OpCode::Add) => vm.binary_op(|a: Value, b: Value| { a + b }),
+            Some(OpCode::Subtract) => vm.binary_op(|a: Value, b: Value| { a - b }),
+            Some(OpCode::Multiply) => vm.binary_op(|a: Value, b: Value| { a * b }),
+            Some(OpCode::Divide) => vm.binary_op(|a: Value, b: Value| { a / b }),
             Some(OpCode::Negate) => {
                 let value = vm.pop_value();
                 vm.push_value(-1.0 * value);
@@ -186,9 +198,22 @@ fn run(vm: &mut VM) -> InterpretResult<'static> {
 fn main() -> InterpretResult<'static> {
     let mut chunk = Chunk::new();
 
-    let constant = chunk.add_constant(1.2f64);
+    let constant = chunk.add_constant(1.2);
     chunk.write(OpCode::Constant as u8, 123);
     chunk.write(constant as u8, 123);
+
+    let constant = chunk.add_constant(3.4);
+    chunk.write(OpCode::Constant as u8, 123);
+    chunk.write(constant as u8, 123);
+
+    chunk.write(OpCode::Add as u8, 123);
+
+    let constant = chunk.add_constant(5.6);
+    chunk.write(OpCode::Constant as u8, 123);
+    chunk.write(constant as u8, 123);
+
+    chunk.write(OpCode::Divide as u8, 123);
+
     chunk.write(OpCode::Negate as u8, 123);
     chunk.write(OpCode::Return as u8, 123);
     chunk.disassemble("debug");
