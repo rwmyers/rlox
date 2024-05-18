@@ -153,16 +153,27 @@ fn interpret(chunk: &Chunk) -> InterpretResult {
 fn run(vm: &mut VM) -> InterpretResult {
     loop {
         #[cfg(feature = "debug_trace_execution")]
-        vm.chunk.disassemble_instruction(vm.ip);
+        {
+            print!("          ");
+            for i in 0..vm.stack_top {
+                let slot = vm.stack[i];
+                print!("[ ");
+                print_value(&slot);
+                print!(" ]");
+            }
+            print!("\n");
+            vm.chunk.disassemble_instruction(vm.ip);
+        }
         let instruction = vm.read_byte();
         let op_code = OpCode::try_from(instruction);
         match op_code {
             Ok(OpCode::Constant) => {
                 let constant = vm.read_constant();
-                print_value(&constant);
-                print!("\n");
+                vm.push_value(constant);
             }
             Ok(OpCode::Return) => {
+                print_value(&vm.pop_value());
+                print!("\n");
                 return Ok(())
             }
             _ => continue
