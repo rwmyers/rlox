@@ -1,26 +1,18 @@
-use std::convert::TryFrom;
+#[macro_use] extern crate enum_primitive;
+extern crate num;
+use num::FromPrimitive;
 
 type Value = f64;
 
-/// Operation code.
+enum_from_primitive! {
+#[derive(Debug, PartialEq)]
 #[repr(u8)]
+/// Operation code.
 enum OpCode {
     Constant = 0,
     Negate = 1,
     Return = 2,
 }
-
-impl TryFrom<u8> for OpCode {
-    type Error = &'static str;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(OpCode::Constant),
-            1 => Ok(OpCode::Negate),
-            2 => Ok(OpCode::Return),
-            _ => Err("Invalid OpCode value"),
-        }
-    }
 }
 
 
@@ -69,7 +61,7 @@ impl Chunk {
         }
 
         let instruction = self.code[offset];
-        let op_code = OpCode::try_from(instruction).unwrap();
+        let op_code = OpCode::from_u8(instruction).unwrap();
         match op_code {
             OpCode::Constant => {
                 constant_instruction("OP_CONSTANT", &self, offset)
@@ -170,17 +162,17 @@ fn run(vm: &mut VM) -> InterpretResult {
             vm.chunk.disassemble_instruction(vm.ip);
         }
         let instruction = vm.read_byte();
-        let op_code = OpCode::try_from(instruction);
+        let op_code = OpCode::from_u8(instruction);
         match op_code {
-            Ok(OpCode::Constant) => {
+            Some(OpCode::Constant) => {
                 let constant = vm.read_constant();
                 vm.push_value(constant);
             }
-            Ok(OpCode::Negate) => {
+            Some(OpCode::Negate) => {
                 let value = vm.pop_value();
                 vm.push_value(-1.0 * value);
             }
-            Ok(OpCode::Return) => {
+            Some(OpCode::Return) => {
                 print_value(&vm.pop_value());
                 print!("\n");
                 return Ok(())
