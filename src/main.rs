@@ -6,7 +6,8 @@ type Value = f64;
 #[repr(u8)]
 enum OpCode {
     Constant = 0,
-    Return = 1,
+    Negate = 1,
+    Return = 2,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -15,7 +16,8 @@ impl TryFrom<u8> for OpCode {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(OpCode::Constant),
-            1 => Ok(OpCode::Return),
+            1 => Ok(OpCode::Negate),
+            2 => Ok(OpCode::Return),
             _ => Err("Invalid OpCode value"),
         }
     }
@@ -71,6 +73,9 @@ impl Chunk {
         match op_code {
             OpCode::Constant => {
                 constant_instruction("OP_CONSTANT", &self, offset)
+            }
+            OpCode::Negate => {
+                simple_instruction("OP_NEGATE", offset)
             }
             OpCode::Return => {
                 simple_instruction("OP_RETURN", offset)
@@ -171,6 +176,10 @@ fn run(vm: &mut VM) -> InterpretResult {
                 let constant = vm.read_constant();
                 vm.push_value(constant);
             }
+            Ok(OpCode::Negate) => {
+                let value = vm.pop_value();
+                vm.push_value(-1.0 * value);
+            }
             Ok(OpCode::Return) => {
                 print_value(&vm.pop_value());
                 print!("\n");
@@ -188,7 +197,8 @@ fn main() -> InterpretResult {
     let constant = chunk.add_constant(1.2f64);
     chunk.write(OpCode::Constant as u8, 123);
     chunk.write(constant as u8, 123);
-
+    chunk.write(OpCode::Negate as u8, 123);
     chunk.write(OpCode::Return as u8, 123);
+    chunk.disassemble("debug");
     interpret(&chunk)
 }
