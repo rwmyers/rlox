@@ -137,17 +137,17 @@ fn print_value(value: &Value) {
 #[derive(Debug)]
 enum InterpretError {
     CompileError,
-    RuntimeError,
+    RuntimeError(String),
 }
 
-type InterpretResult = Result<(), InterpretError>;
+type InterpretResult<'a> = Result<(), InterpretError>;
 
 fn interpret(chunk: &Chunk) -> InterpretResult {
     let mut vm = VM::new(chunk);
     run(&mut vm)
 }
 
-fn run(vm: &mut VM) -> InterpretResult {
+fn run(vm: &mut VM) -> InterpretResult<'static> {
     loop {
         #[cfg(feature = "debug_trace_execution")]
         {
@@ -177,13 +177,13 @@ fn run(vm: &mut VM) -> InterpretResult {
                 print!("\n");
                 return Ok(())
             }
-            _ => panic!("Instruction {instruction} not recognized!")
+            _ => return Err(InterpretError::RuntimeError(format!("Instruction {instruction} not recognized!")))
         }
 
     }
 }
 
-fn main() -> InterpretResult {
+fn main() -> InterpretResult<'static> {
     let mut chunk = Chunk::new();
 
     let constant = chunk.add_constant(1.2f64);
