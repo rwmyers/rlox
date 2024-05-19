@@ -1,6 +1,10 @@
 #[macro_use] extern crate enum_primitive;
 extern crate num;
+use clap::Parser;
 use num::FromPrimitive;
+use std::fs;
+use std::io::{self, BufRead, Write};
+use std::path::PathBuf;
 
 type Value = f64;
 
@@ -144,7 +148,7 @@ fn print_value(value: &Value) {
 
 #[derive(Debug)]
 enum InterpretError {
-    CompileError,
+    CompileError(String),
     RuntimeError(String),
 }
 
@@ -153,6 +157,157 @@ type InterpretResult<'a> = Result<(), InterpretError>;
 fn interpret(chunk: &Chunk) -> InterpretResult {
     let mut vm = VM::new(chunk);
     run(&mut vm)
+}
+
+fn interpret_source(source: &str) -> InterpretResult {
+    compile(source);
+    Ok(())
+}
+
+struct Scanner {
+    start: usize,
+    current: usize,
+    line: usize,
+    source: String,
+}
+
+fn to_ascii_chars(s: &str) -> String {
+    s.chars().filter(|c| c.is_ascii()).collect()
+}
+
+impl Scanner {
+    fn new(source: &str) -> Self {
+        Scanner {
+            start: 0,
+            current: 0,
+            line: 1,
+            source: to_ascii_chars(source),
+        }
+    }
+
+    fn scan_token(&mut self) -> Token {
+        self.start = self.current;
+
+        if self.is_at_end() {
+            return self.make_token(TokenType::EOF);
+        }
+
+        return self.error_token("Unexpected character.");
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.get_current_char() == '\0'
+    }
+
+    fn get_current_char(&self) -> char {
+        self.get_source_char(self.current)
+    }
+
+    fn get_source_char(&self, index: usize) -> char {
+        self.source.chars().nth(index).unwrap()
+    }
+
+    fn make_token(&self, token_type: TokenType) -> Token {
+        Token::new(
+            token_type,
+            &self.source[self.start..self.current],
+            self.line)
+    }
+
+    fn error_token(&self, message: &str) -> Token {
+        Token::new(
+            TokenType::Error,
+            message,
+            self.line
+        )
+    }
+}
+
+struct Token {
+    token_type: TokenType,
+    content: String,
+    line: usize,
+}
+
+impl Token {
+    fn new(token_type: TokenType, content: &str, line: usize) -> Self {
+        Token {
+            token_type,
+            content: content.to_string(),
+            line
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum TokenType {
+    // Single-character tokens
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Slash,
+    Star,
+    // One or two character tokens
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
+    // Literals
+    Identifier,
+    String,
+    Number,
+    // Keywords
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
+    Error,
+    EOF,
+}
+
+fn compile(source: &str) -> InterpretResult<'static> {
+    let mut scanner = Scanner::new(source);
+    let mut line = 0;
+    loop {
+        let token = scanner.scan_token();
+        if token.line != line {
+            print!("{:4} ", token.line);
+            line = token.line;
+        } else {
+            print!("   | ");
+        }
+
+        println!("{:?} '{}'", token.token_type, token.content);
+
+        if token.token_type == TokenType::Error {
+            return InterpretResult::Err(InterpretError::CompileError(token.content));
+        }
+        if token.token_type == TokenType::EOF {
+            return Ok(())
+        }
+    }
 }
 
 fn run(vm: &mut VM) -> InterpretResult<'static> {
@@ -195,27 +350,61 @@ fn run(vm: &mut VM) -> InterpretResult<'static> {
     }
 }
 
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Optional file name
+    input_file: Option<PathBuf>,
+}
+
 fn main() -> InterpretResult<'static> {
-    let mut chunk = Chunk::new();
+    let args = Args::parse();
+    if let Some(file_path) = args.input_file {
+        run_file(&file_path)
+    } else {
+        repl()
+    }
+}
 
-    let constant = chunk.add_constant(1.2);
-    chunk.write(OpCode::Constant as u8, 123);
-    chunk.write(constant as u8, 123);
+fn run_file(file_path: &PathBuf) -> InterpretResult<'static> {
+    match fs::read_to_string(&file_path) {
+        Ok(source) => {
+            interpret_source(&source)
+        }
+        Err(_) => {
+            InterpretResult::Err(InterpretError::CompileError("Could not read file.".to_string()))
+        }
+    }
+}
 
-    let constant = chunk.add_constant(3.4);
-    chunk.write(OpCode::Constant as u8, 123);
-    chunk.write(constant as u8, 123);
+fn repl() -> InterpretResult<'static> {
+    let stdin = io::stdin();
+    let mut reader = stdin.lock();
+    let mut stdout = io::stdout();
 
-    chunk.write(OpCode::Add as u8, 123);
+    println!("Lox REPL (press Ctrl+D or Ctrl+Z to finish):");
+    loop {
+        print!("> ");
+        stdout.flush().expect("Failed to flush stdout");
 
-    let constant = chunk.add_constant(5.6);
-    chunk.write(OpCode::Constant as u8, 123);
-    chunk.write(constant as u8, 123);
+        let mut source = String::new();
+        match reader.read_line(&mut source) {
+            Ok(0) => break, // Exit via Ctrl+D / Ctrl+Z
+            Ok(_) => {
+                let result = interpret_source(source.trim_end());
+                if let Err(interpret_error) = result {
+                    match interpret_error {
+                        InterpretError::CompileError(output) => eprintln!("Compilation error: {}", output),
+                        InterpretError::RuntimeError(output) => eprintln!("Runtime error: {}", output)
+                    }
+                }
+            }
+            Err(err) => {
+                eprint!("Error reading line: {}", err);
+                break;
+            }
+        }
+    }
 
-    chunk.write(OpCode::Divide as u8, 123);
-
-    chunk.write(OpCode::Negate as u8, 123);
-    chunk.write(OpCode::Return as u8, 123);
-    chunk.disassemble("debug");
-    interpret(&chunk)
+    Ok(())
 }
