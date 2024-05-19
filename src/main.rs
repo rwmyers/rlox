@@ -186,25 +186,175 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) -> Token {
+        self.skip_whitespace();
         self.start = self.current;
 
         if self.is_at_end() {
             return self.make_token(TokenType::EOF);
         }
 
-        return self.error_token("Unexpected character.");
+        let c = self.advance();
+        if c.is_ascii_alphabetic() {
+            return self.identifier();
+        }
+        if c.is_ascii_digit() {
+            return self.number();
+        }
+        match c {
+            '(' => self.make_token(TokenType::LeftParen),
+            ')' => self.make_token(TokenType::RightParen),
+            '{' => self.make_token(TokenType::LeftBrace),
+            '}' => self.make_token(TokenType::RightBrace),
+            ';' => self.make_token(TokenType::Semicolon),
+            ',' => self.make_token(TokenType::Comma),
+            '.' => self.make_token(TokenType::Dot),
+            '-' => self.make_token(TokenType::Minus),
+            '+' => self.make_token(TokenType::Plus),
+            '/' => self.make_token(TokenType::Slash),
+            '*' => self.make_token(TokenType::Star),
+            '!' => {
+                if self.match_char('=') {
+                    self.make_token(TokenType::BangEqual)
+                } else {
+                    self.make_token(TokenType::Equal)
+                }
+            },
+            '=' => {
+                if self.match_char('=') {
+                    self.make_token(TokenType::EqualEqual)
+                } else {
+                    self.make_token(TokenType::Equal)
+                }
+            },
+            '<' => {
+                if self.match_char('=') {
+                    self.make_token(TokenType::LessEqual)
+                } else {
+                    self.make_token(TokenType::Less)
+                }
+            },
+            '>' => {
+                if self.match_char('=') {
+                    self.make_token(TokenType::GreaterEqual)
+                } else {
+                    self.make_token(TokenType::Greater)
+                }
+            },
+            '"' => self.string(),
+            _ => self.error_token(&format!("Unexpected character: '{}'", c))
+        }
     }
 
     fn is_at_end(&self) -> bool {
-        self.get_current_char() == '\0'
+        self.peek() == '\0'
     }
 
-    fn get_current_char(&self) -> char {
+    fn peek(&self) -> char {
         self.get_source_char(self.current)
     }
 
+    fn peek_next(&self) -> char {
+        if self.is_at_end() {
+            '\0'
+        } else {
+            self.get_source_char(self.current + 1)
+        }
+    }
+
     fn get_source_char(&self, index: usize) -> char {
-        self.source.chars().nth(index).unwrap()
+        let opt = self.source.chars().nth(index);
+        match opt {
+            None => '\0',
+            Some(c) => c
+        }
+    }
+
+    fn skip_whitespace(&mut self) {
+        loop {
+            let c = self.peek();
+            match c {
+                ' ' | '\r' | '\t' => {
+                    self.advance();
+                }
+                '\n' => {
+                    self.line += 1;
+                    let _ = self.advance();
+                },
+                '/' => {
+                    if self.peek_next() == '/' {
+                        while self.peek() != '\n' && !self.is_at_end() {
+                            self.advance();
+                        }
+                    } else {
+                        return;
+                    }
+                }
+                _ => return
+            }
+        }
+    }
+
+    fn string(&mut self) -> Token {
+        while self.peek() != '"' && self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            return self.error_token("Unterminated string.");
+        }
+
+        // Closing quote
+        self.advance();
+        self.make_token(TokenType::String)
+    }
+
+    fn identifier(&mut self) -> Token {
+        while self.peek().is_alphanumeric() {
+            self.advance();
+        }
+
+        let identifier_type = self.identifier_type();
+        self.make_token(identifier_type)
+    }
+
+    fn identifier_type(&mut self) -> TokenType {
+        TokenType::Identifier
+    }
+
+    fn number(&mut self) -> Token {
+        while self.peek().is_ascii_digit() {
+            self.advance();
+        }
+
+        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
+            // Consume the '.'
+            self.advance();
+
+            while self.peek().is_ascii_digit() {
+                self.advance();
+            }
+        }
+
+        self.make_token(TokenType::Number)
+    }
+
+    fn advance(&mut self) -> char {
+        self.current += 1;
+        self.get_source_char(self.current - 1)
+    }
+
+    fn match_char(&mut self, expected: char) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+        if self.peek() != expected {
+            return false;
+        }
+        self.current += 1;
+        true
     }
 
     fn make_token(&self, token_type: TokenType) -> Token {
