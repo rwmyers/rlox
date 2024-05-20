@@ -9,6 +9,9 @@ use std::path::PathBuf;
 mod scanner;
 use scanner::Scanner;
 
+mod token;
+use token::{Token, TokenType};
+
 type Value = f64;
 
 enum_from_primitive! {
@@ -170,71 +173,6 @@ fn interpret_source(source: &str) -> InterpretResult {
 
 pub fn to_ascii_chars(s: &str) -> String {
     s.chars().filter(|c| c.is_ascii()).collect()
-}
-
-
-struct Token {
-    token_type: TokenType,
-    content: String,
-    line: usize,
-}
-
-impl Token {
-    fn new(token_type: TokenType, content: &str, line: usize) -> Self {
-        Token {
-            token_type,
-            content: content.to_string(),
-            line
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum TokenType {
-    // Single-character tokens
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    Semicolon,
-    Slash,
-    Star,
-    // One or two character tokens
-    Bang,
-    BangEqual,
-    Equal,
-    EqualEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-    // Literals
-    Identifier,
-    String,
-    Number,
-    // Keywords
-    And,
-    Class,
-    Else,
-    False,
-    For,
-    Fun,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
-    Error,
-    EOF,
 }
 
 fn compile(source: &str) -> InterpretResult<'static> {
