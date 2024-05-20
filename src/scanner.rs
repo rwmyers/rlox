@@ -22,7 +22,7 @@ impl Scanner {
         self.start = self.current;
 
         if self.is_at_end() {
-            return self.make_token(TokenType::EOF);
+            return self.make_token(TokenType::Eof);
         }
 
         let c = self.advance();
@@ -95,10 +95,7 @@ impl Scanner {
 
     fn get_source_char(&self, index: usize) -> char {
         let opt = self.source.chars().nth(index);
-        match opt {
-            None => '\0',
-            Some(c) => c
-        }
+        opt.unwrap_or('\0')
     }
 
     fn skip_whitespace(&mut self) {

@@ -77,7 +77,7 @@ impl Chunk {
         let instruction = self.code[offset];
         let op_code = OpCode::from_u8(instruction).unwrap();
         match op_code {
-            OpCode::Constant => constant_instruction("OP_CONSTANT", &self, offset),
+            OpCode::Constant => constant_instruction("OP_CONSTANT", self, offset),
             OpCode::Add => simple_instruction("OP_ADD", offset),
             OpCode::Subtract => simple_instruction("OP_SUBTRACT", offset),
             OpCode::Multiply => simple_instruction("OP_MULTPLY", offset),
@@ -136,7 +136,7 @@ impl<'a> VM<'a> {
 }
 
 fn simple_instruction(name: &str, offset: usize) -> usize {
-    print!("{}\n", name);
+    println!("{}", name);
     offset + 1
 }
 
@@ -144,7 +144,7 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let constant = chunk.code[offset + 1] as usize;
     print!("{:<16} {:>4} '", name, constant);
     print_value(&chunk.constants[constant]);
-    print!("'\n");
+    println!("'");
     offset + 2
 }
 
@@ -166,7 +166,7 @@ fn interpret(chunk: &Chunk) -> InterpretResult {
 }
 
 fn interpret_source(source: &str) -> InterpretResult {
-    compile(source);
+    let _ = compile(source);
     Ok(())
 }
 
@@ -192,7 +192,7 @@ fn compile(source: &str) -> InterpretResult<'static> {
         if token.token_type == TokenType::Error {
             return InterpretResult::Err(InterpretError::CompileError(token.content));
         }
-        if token.token_type == TokenType::EOF {
+        if token.token_type == TokenType::Eof {
             return Ok(())
         }
     }
@@ -209,7 +209,7 @@ fn run(vm: &mut VM) -> InterpretResult<'static> {
                 print_value(&slot);
                 print!(" ]");
             }
-            print!("\n");
+            println!();
             vm.chunk.disassemble_instruction(vm.ip);
         }
         let instruction = vm.read_byte();
@@ -229,7 +229,7 @@ fn run(vm: &mut VM) -> InterpretResult<'static> {
             }
             Some(OpCode::Return) => {
                 print_value(&vm.pop_value());
-                print!("\n");
+                println!();
                 return Ok(())
             }
             _ => return Err(InterpretError::RuntimeError(format!("Instruction {instruction} not recognized!")))
@@ -255,7 +255,7 @@ fn main() -> InterpretResult<'static> {
 }
 
 fn run_file(file_path: &PathBuf) -> InterpretResult<'static> {
-    match fs::read_to_string(&file_path) {
+    match fs::read_to_string(file_path) {
         Ok(source) => {
             interpret_source(&source)
         }
