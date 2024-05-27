@@ -160,22 +160,17 @@ enum InterpretError {
 
 type InterpretResult<'a> = Result<(), InterpretError>;
 
-fn interpret(chunk: &Chunk) -> InterpretResult {
-    let mut vm = VM::new(chunk);
-    run(&mut vm)
-}
-
-fn interpret_source(source: &str) -> InterpretResult {
-    let _ = compile(source);
+fn interpret(source: &str) -> InterpretResult {
+    let mut chunk = Chunk::new();
+    compile(source, &mut chunk)?;
     Ok(())
 }
-
 
 pub fn to_ascii_chars(s: &str) -> String {
     s.chars().filter(|c| c.is_ascii()).collect()
 }
 
-fn compile(source: &str) -> InterpretResult<'static> {
+fn compile(source: &str, chunk: &mut Chunk) -> InterpretResult<'static> {
     let mut scanner = Scanner::new(source);
     let mut line = 0;
     loop {
@@ -257,7 +252,7 @@ fn main() -> InterpretResult<'static> {
 fn run_file(file_path: &PathBuf) -> InterpretResult<'static> {
     match fs::read_to_string(file_path) {
         Ok(source) => {
-            interpret_source(&source)
+            interpret(&source)
         }
         Err(_) => {
             InterpretResult::Err(InterpretError::CompileError("Could not read file.".to_string()))
